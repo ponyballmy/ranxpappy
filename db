@@ -1,0 +1,73 @@
+import pymysql
+
+class Databaser():
+    def __init__(self):
+        con= pymysql.connect(host='localhost',user='root',password='password',db='stationery',autocommit=True)
+        self.cursor = con.cursor()
+
+
+    def auto(self,login,password):
+        sql='''
+        
+        select id_role,id_user,fio_user from user where login=%s and password=%s 
+        
+        '''
+        self.cursor.execute(sql,(login,password))
+        res=self.cursor.fetchone()
+        return res
+
+    def insert_data_card_product(self):
+        sql='''
+        
+        select product.id_product,product.product_name,product.description,category.name_category,manufacturer.name_manufacturer,
+        supplier.name_supplier,product.price,product.unit,product.stock_quantity,product.discount_percent,product.image_path from product
+        join category on category.id_category=product.id_category
+        join manufacturer on product.id_manufacturer=manufacturer.id_manufacturer
+        join supplier on product.id_supplier=supplier.id_supplier
+        '''
+        self.cursor.execute(sql)
+        res=self.cursor.fetchall()
+        return res
+
+
+    def search_filter_product(self,text,procent_sale,space_sale,sale):
+        pattern=f"%{text}%"
+        parametrs=[pattern,pattern,pattern]
+        sql='''
+        
+        select product.id_product,product.product_name,product.description,category.name_category,manufacturer.name_manufacturer,
+        supplier.name_supplier,product.price,product.unit,product.stock_quantity,product.discount_percent,product.image_path from product
+        join category on category.id_category=product.id_category
+        join manufacturer on product.id_manufacturer=manufacturer.id_manufacturer
+        join supplier on product.id_supplier=supplier.id_supplier
+        
+        where (product.product_name like %s or product.description like %s or category.name_category like %s)
+        
+        
+        
+        '''
+        if procent_sale=='Скидка 0%-11%':
+            sql += ' and product.discount_percent between 0 and 11'
+        if procent_sale=='Скидка 11%-18%':
+            sql += ' and product.discount_percent between 11 and 18'
+        if procent_sale=='Скидка 19% и больше':
+            sql += ' and product.discount_percent >=19'
+        #По возрастанию и убыванию цены
+        '''if space_sale=="По убыванию":
+            sql+=' order by product.price desc'
+
+        if space_sale=="По возрастанию":
+            sql+=' order by product.price asc'
+            '''
+        # По возрастанию и убыванию скидки
+        if sale=='По возрастанию скидки':
+            sql += ' order by product.discount_percent asc'
+
+        if sale=='По убыванию скидки':
+            sql += ' order by product.discount_percent desc'
+
+
+
+        self.cursor.execute(sql,tuple(parametrs))
+        res =self.cursor.fetchall()
+        return res

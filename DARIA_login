@@ -1,0 +1,58 @@
+from PyQt6 import QtCore, QtGui, QtWidgets
+from main import *
+from py_interface.auth import *
+from db import *
+
+class Login(QtWidgets.QMainWindow, Ui_AuthWin):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+
+        self.pushButtoninguest.clicked.connect(self.open_main_guest)
+        self.pushButtonIN.clicked.connect(self.auth_user)
+
+    def auth_user(self):
+        try:
+            login = self.lineEditLog.text()
+            password = self.lineEditPassword.text()
+            if login=='' or password=='':
+                QtWidgets.QMessageBox.warning(self, 'Ошибка', 'Заполните все поля')
+
+
+            result= self.db.select_user(login,password)
+            if result is None:
+                return QtWidgets.QMessageBox.warning(self, 'Ошибка', 'Неверный логин или пароль')
+
+            role, fio, id_user=result
+
+            if role==1:
+                QtWidgets.QMessageBox.information(self, 'Успешная авторизация', f'Здравствуйте, {fio}!\nВы зашли как администратор.')
+                self.open_main(role, fio, id_user)
+            if role==2:
+                QtWidgets.QMessageBox.information(self, 'Успешная авторизация', f'Здравствуйте, {fio}!\nВы зашли как клиент.')
+                self.open_main(role, fio, id_user)
+            if role==3:
+                QtWidgets.QMessageBox.information(self, 'Успешная авторизация', f'Здравствуйте, {fio}!\nВы зашли как менеджер.')
+                self.open_main(role, fio, id_user)
+
+        except Exception as e:
+            print(e, 'auth_user')
+
+    def open_main(self,role, fio, id_user):
+        try:
+            self.win = MainWin(role, fio, id_user)
+            self.win.show()
+            self.close()
+        except Exception as e:
+            print(e, 'open_main')
+
+    def open_main_guest(self):
+        try:
+            self.win = MainWin(4, 'Гостевой режим', 0)
+            self.win.show()
+            self.close()
+            QtWidgets.QMessageBox.information(self, 'Успешный вход',f'Здравствуйте!\nВы зашли как гость.')
+
+        except Exception as e:
+            print(e, 'open_main_guest')

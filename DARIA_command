@@ -1,0 +1,12 @@
+аргумент 
+```
+$FileName$ -o $FileNameWithoutExtension$.py
+папка 
+```
+$FileDir$
+``
+найти где pyuic6 
+```
+where pyuic6
+``
+tool->external tool

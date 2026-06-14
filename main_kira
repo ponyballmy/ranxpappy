@@ -2,15 +2,14 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import QDate
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QFileDialog, QMessageBox
-
-from form_main import *
+from form_mainwindow import *
 
 from db import *
 from form_product_card import *
-from forma_card_order import Card_order
+from card_order import Card_order
 from order_form import Ui_Dialog_Order
 from order_window import *
-from product_form1 import *
+from product_form import *
 
 
 class Main_window(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -87,12 +86,7 @@ class Main_window(QtWidgets.QMainWindow, Ui_MainWindow):
             self.win.show()
             self.close()
         except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self,
-                "Ошибка",
-                f"Не удалось открыть окно заказов\n{e}"
-            )
-
+            print(e)
 
 class Product_card(QtWidgets.QMainWindow, IU_card_product):
     def __init__(self, data, main_window):
@@ -263,12 +257,6 @@ class Work_Product(QtWidgets.QDialog, Ui_Dialog_Product):
                 )
             else:
                 print(e)
-        except Exception as e:
-            if e.args[0] == 1451:
-                QtWidgets.QMessageBox.warning(self, "Ошибка", "Невозможно удалить товар: он используется в заказах")
-            else:
-
-                print(e)
 
 
 class Add_Product(QtWidgets.QDialog, Ui_Dialog_Product):
@@ -314,7 +302,7 @@ class Add_Product(QtWidgets.QDialog, Ui_Dialog_Product):
             QMessageBox.warning(
                 self,
                 "Ошибка",
-                "Заполните все обязательные поля!"
+                "Заполните все поля!"
             )
             return
 
@@ -350,7 +338,7 @@ class Order(QtWidgets.QMainWindow, Order_Window):
         self.insert_data_order()
         self.pushButton_addorder.clicked.connect(self.open_add_order)
         self.pushButton_close.clicked.connect(self.open_main_win)
-        self.label.setText(self.main_win.fio)
+        self.label_FIO.setText(self.main_win.fio)
 
     def insert_data_order(self):
         data = self.db.insert_data_order_card()
@@ -388,7 +376,7 @@ class Order_Card(QtWidgets.QMainWindow, Card_order):
         self.label_date_order.setText(str(self.data[2]))
         self.label_dateDostavka.setText(str(self.data[3]))
         self.label_status.setText(str(self.data[4]))
-        if main_win.role == 1:
+        if self.main_win.role == 1:
             self.frame_2.mousePressEvent = lambda event: self.open_work_order()
 
     def open_work_order(self):
@@ -452,7 +440,7 @@ class Order_Work(QtWidgets.QDialog, Ui_Dialog_Order):
             self.close()
         except Exception as e:
             if e.args[0] == 1451:
-                QtWidgets.QMessageBox.warning(self, "Ошибка", "Невозможно удалить товар: он используется в заказах")
+                QtWidgets.QMessageBox.warning(self, "Ошибка", "Невозможно удалить заказ")
             else:
 
                 print(e)

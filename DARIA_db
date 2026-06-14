@@ -1,0 +1,181 @@
+from sys import exception
+
+import pymysql
+
+class Databaser():
+    def __init__(self):
+        con = pymysql.connect(
+            host='localhost',
+            user='root',
+            password='password',
+            database='stationery',
+            autocommit=True
+        )
+        self.cursor=con.cursor()
+
+    def select_user(self,login,password):
+        sql = """
+        select id_role,fio_user,id_user from user where login = %s and password=%s
+        """
+        self.cursor.execute(sql,(login,password))
+        res = self.cursor.fetchone()
+        return res
+
+
+    def all_supp(self):
+        sql = """
+        select id_supplier, name_supplier from supplier
+        """
+        self.cursor.execute(sql)
+        res=self.cursor.fetchall()
+        return res
+
+    def all_manufac(self):
+        sql = """
+              select id_manufacturer, name_manufacturer \
+              from manufacturer \
+              """
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def all_cat(self):
+        sql = """
+              select id_category, name_category
+              from category
+              """
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def data_product(self):
+        try:
+            sql = """
+            select p.id_product, p.product_name, p.description, c.name_category, m.name_manufacturer,
+            s.name_supplier, p.price, p.unit, p.stock_quantity, p.discount_percent, p.image_path
+            from product p
+            join category c on p.id_category = c.id_category
+            join manufacturer m on p.id_manufacturer = m.id_manufacturer
+            join supplier s on p.id_supplier = s.id_supplier
+            """
+            self.cursor.execute(sql)
+            res = self.cursor.fetchall()
+            return res
+        except Exception as e:
+            print(e, 'data_product')
+
+    def db_filter_search(self,line,supp,change_price):
+        try:
+            pattern = f"%{line}%"
+            params = [pattern,pattern,pattern,pattern,pattern]
+            sql = """
+                  select p.id_product, \
+                         p.product_name, \
+                         p.description, \
+                         c.name_category, \
+                         m.name_manufacturer,
+                         s.name_supplier, \
+                         p.price, \
+                         p.unit, \
+                         p.stock_quantity, \
+                         p.discount_percent, \
+                         p.image_path
+                  from product p
+                           join category c on p.id_category = c.id_category
+                           join manufacturer m on p.id_manufacturer = m.id_manufacturer
+                           join supplier s on p.id_supplier = s.id_supplier \
+                  where (p.product_name like %s or p.description like %s or c.name_category like %s or m.name_manufacturer like %s or s.name_supplier like %s)
+                  """
+            if supp != 0:
+                sql += ' and p.id_supplier =%s'
+                params.append(supp)
+
+            if change_price == "По возрастанию":
+                sql += ' order by p.price ASC'
+            if change_price == "По убыванию":
+                sql += ' order by p.price DESC'
+
+            """if proc_sale == 'Скидка 0-11%':
+                sql+=' and p.discount_percent between 0 and 11'
+            if proc_sale=='Скидка 11-18%':
+                sql += ' and p.discount_percent between 11 and 18'
+            if proc_sale == 'Скидка от 19% и более':
+                sql += ' and p.discount_percent >= 19'
+
+            if proc_sale2 == 'По возрастанию':
+                sql += ' order by p.discount_percent  ASC'
+            if proc_sale2 == 'По убыванию':
+                sql += ' order by p.discount_percent  DESC'"""
+            self.cursor.execute(sql, tuple(params))
+            res = self.cursor.fetchall()
+            return res
+        except Exception as e:
+            print(e, 'db_filter_search')
+
+    def save_edit_card(self,id_product, product_name, description,id_category,id_manufacturer,id_supplier,price,unit,stock_quantity,discount_percent,image_path):
+        try:
+            sql = """
+                UPDATE `stationery`.`product` 
+                SET `product_name` = %s, `description` = %s, `id_category` = %s, 
+                    `id_manufacturer` = %s, `id_supplier` = %s, `price` = %s, 
+                    `unit` = %s, `stock_quantity` = %s, `discount_percent` = %s, 
+                    `image_path` = %s 
+                WHERE (`id_product` = %s);
+                """
+            self.cursor.execute(sql, (product_name, description,id_category,id_manufacturer,id_supplier,price,unit,stock_quantity,discount_percent,image_path,id_product))
+        except Exception as e:
+            print(e, 'save_edit_card')
+
+    def delete_card(self,id_product):
+        sql = """
+        DELETE FROM `stationery`.`product` WHERE (`id_product` = %s);
+        """
+        self.cursor.execute(sql, (id_product,))
+
+    def create_new_product(self,product_name,description,id_category,id_manufacturer,id_supplier,price,unit,stock_quantity,discount_percent,image_path):
+        try:
+            sql = """
+            INSERT INTO `stationery`.`product` (`product_name`, `description`, `id_category`, `id_manufacturer`, `id_supplier`, `price`, `unit`, `stock_quantity`, `discount_percent`, `image_path`)
+            VALUES (%s, %s, %s, %s, %s, %s,%s, %s, %s, %s);
+            """
+            self.cursor.execute(sql,(product_name,description,id_category,id_manufacturer,id_supplier,price,unit,stock_quantity,discount_percent,image_path))
+        except Exception as e:
+            print(e,'create_new_product' )
+
+    def data_card_order(self):
+        sql = """
+        select o.id_order, o.pickup_point, o.order_date, o.issue_date, o.id_user, s.name_status from orders o
+            join status s on o.id_status = s.id_status
+        """
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def all_status(self):
+        sql = """
+        select id_status, name_status from status
+        """
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def update_orders(self,id_order,pickup_point,issue_date,id_status):
+        sql = """
+        UPDATE `stationery`.`orders` SET `pickup_point` = %s, `issue_date` = %s,`id_status` = %s 
+        WHERE (`id_order` = %s);
+        """
+        self.cursor.execute(sql, (pickup_point,issue_date,id_status,id_order))
+
+
+    def drop_order(self,id_order):
+        sql = """
+        DELETE FROM `stationery`.`orders` WHERE (`id_order` = %s);
+        """
+        self.cursor.execute(sql, (id_order,))
+
+    def insert_new_order(self, pickup_point,issue_date,id_status):
+        sql = """
+        INSERT INTO `stationery`.`orders` (`pickup_point`, `order_date`, `issue_date`, `id_user`, `id_status`) 
+        VALUES (%s, NOW(), %s, 1, %s);
+        """
+        self.cursor.execute(sql, (pickup_point,issue_date,id_status))

@@ -1,0 +1,485 @@
+from PyQt6.QtCore import QDate
+from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QVBoxLayout
+from PyQt6 import QtCore, QtGui, QtWidgets
+from pyexpat.errors import messages
+
+from db import *
+from py_interface.main_win import *
+from py_interface.card import *
+from py_interface.card_dialog import *
+from py_interface.order import *
+from py_interface.card_order import *
+from py_interface.order_dialog import *
+
+class MainWin(QtWidgets.QMainWindow, Ui_MainWindow):
+    def __init__(self, role, fio, id_user):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.role = role
+            self.fio = fio
+            self.id_user = id_user
+
+            self.labelFIO.setText(fio)
+            self.pushButtonExit.clicked.connect(self.exit_sys)
+            if role==2 or role==4:
+                self.lineEditSEARCH.hide()
+                self.comboBoxSale.hide()
+                self.comboBoxSupp.hide()
+                self.comboBoxSaleUpDown.hide()
+                self.comboBoxKolvo.hide()
+                self.pushButtonOrder.hide()
+                self.pushButtonAdd.hide()
+                self.label.hide()
+            if role==3:
+                self.pushButtonAdd.hide()
+                self.label.hide()
+
+            self.comboBoxSupp.addItem('Все поставщики', 0)
+            for i in self.db.all_supp():
+                self.comboBoxSupp.addItem(str(i[1]), i[0])
+
+            self.layout_main=QVBoxLayout()
+            self.scrollAreaWidgetContents.setLayout(self.layout_main)
+            self.data_card()
+
+            self.lineEditSEARCH.textChanged.connect(self.search_filter)
+            self.comboBoxKolvo.currentTextChanged.connect(self.search_filter)
+            self.comboBoxSupp.currentTextChanged.connect(self.search_filter)
+            self.pushButtonAdd.clicked.connect(self.open_add)
+            self.pushButtonOrder.clicked.connect(self.open_orders)
+        except Exception as e:
+            print(e, '__init__ main')
+
+    #выход из системы, возвращение к авторизации
+    def exit_sys(self):
+        try:
+            from login import Login
+            self.win = Login()
+            self.win.show()
+            self.close()
+            QtWidgets.QMessageBox.information(self, 'Выход из системы','Вы успешно вышли из системы')
+        except Exception as e:
+            print(e, 'exit_sys')
+
+    #заполнение карточками товаров
+    def data_card(self):
+        try:
+            data = self.db.data_product()
+            for i in data:
+                card = CardItem(i,self)
+                self.layout_main.addWidget(card)
+        except Exception as e:
+            print(e,'data_card')
+
+    #очищение скролла
+    def clean_scroll(self):
+        try:
+            while self.layout_main.count():
+                item = self.layout_main.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+        except Exception as e:
+            print(e, 'clean_scroll')
+
+    #функция поиска и фильтрации
+    def search_filter(self):
+        try:
+            self.clean_scroll()
+            line=self.lineEditSEARCH.text()
+            supp = self.comboBoxSupp.currentData()
+            change_price = self.comboBoxKolvo.currentText()
+            data = self.db.db_filter_search(line, supp, change_price)
+            for i in data:
+                card = CardItem(i,self)
+                self.layout_main.addWidget(card)
+        except Exception as e:
+            print(e, 'search_filter')
+
+    #открытие окна для добавления товара
+    def open_add(self):
+        try:
+            self.win = CardAdd(self)
+            self.win.show()
+        except Exception as e:
+            print(e, 'open_add')
+
+    # открытие окна редактирования товара
+    def open_orders(self):
+        try:
+            self.win = OrderWin(self)
+            self.win.show()
+            self.close()
+        except Exception as e:
+            print(e, 'open_orders')
+
+
+class CardItem(QtWidgets.QMainWindow, Ui_CardItem):
+    def __init__(self, data_item, main_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.data_item = data_item
+            self.main_win = main_win
+            #заполнение карточки данными
+            self.label_name.setText(data_item[1])
+            self.label_desc.setText(data_item[2])
+            self.label_category.setText(data_item[3])
+            self.label_manufac.setText(data_item[4])
+            self.label_supp.setText(data_item[5])
+            self.label_price.setText(str(data_item[6]))
+            self.label_edinica.setText(str(data_item[7]))
+            self.label_kolvo.setText(str(data_item[8]))
+            self.label_sale.setText(str(data_item[9]))
+            if data_item[10]:
+                pix = QPixmap(f"image/{data_item[10]}")
+                self.label_photo.setPixmap(pix.scaled(300,200))
+            else:
+                pix = QPixmap("image/photo.png")
+                self.label_photo.setPixmap(pix.scaled(300, 200))
+
+            if self.main_win.role == 1:
+                self.frame.mousePressEvent = lambda event: self.open_edit()
+
+            #изменение оформления карточки
+            if data_item[9] > 15:
+                self.frame.setStyleSheet('background-color: rgb(46, 139, 87);')
+
+            if data_item[9] > 0:
+                self.label_price.setStyleSheet("text-decoration: line-through;color: rgb(255, 0, 0);")
+                self.label_price_sale.setText(str(round(int(data_item[6]) - int(data_item[6]) / 100 * int(data_item[9]))))
+
+            if data_item[8] == 0:
+                self.label_kolvo.setStyleSheet("background-color: rgb(0, 85, 255);")
+                self.label_9.setStyleSheet("background-color: rgb(0, 85, 255);")
+        except Exception as e:
+            print(e,"init card")
+
+    #открытие окна редактирования товара
+    def open_edit(self):
+        try:
+            self.win = CardEdit(self.data_item, self.main_win)
+            self.win.show()
+        except Exception as e:
+            print(e, 'open_edit')
+
+
+class CardEdit(QtWidgets.QDialog, Ui_DialogCard):
+    def __init__(self, data_item, main_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.data_item = data_item
+            self.main_win = main_win
+
+            self.lineEdit_name.setText(data_item[1])
+            self.lineEdit_desc.setText(data_item[2])
+            self.lineEdit_price.setText(str(data_item[6]))
+            self.lineEdit_kolvo.setText(str(data_item[8]))
+            self.lineEdit_sale.setText(str(data_item[9]))
+            self.label_photo.setText(data_item[10])
+            for i in self.db.all_manufac():
+                self.comboBox_man.addItem(str(i[1]),i[0])
+
+            for i in self.db.all_supp():
+                self.comboBox_supp.addItem(str(i[1]), i[0])
+
+            for i in self.db.all_cat():
+                self.comboBoxcat.addItem(str(i[1]), i[0])
+            self.comboBox_man.setCurrentText(self.data_item[4])
+            self.comboBox_supp.setCurrentText(self.data_item[5])
+            self.pushButtonAdd.hide()
+            self.pushButton_photo.clicked.connect(self.open_file)
+            self.pushButton_close.clicked.connect(self.close)
+            self.pushButtonsave.clicked.connect(self.save_edit)
+            self.pushButton_del.clicked.connect(self.delete_product)
+        except Exception as e:
+            print(e, '__init__ card edit')
+
+    #выбор фотографии из файлов
+    def open_file(self):
+        try:
+            file_path, _ = QFileDialog.getOpenFileName()
+            if file_path:
+                self.label_photo.setText(file_path.split('/')[-1])
+            else:
+                self.label_photo.setText('photo.png')
+        except Exception as e:
+            print(e, "open_file")
+
+    #сохранение редактирования товара
+    def save_edit(self):
+        try:
+            id_product=self.data_item[0]
+            product_name=self.lineEdit_name.text()
+            description=self.lineEdit_desc.text()
+            id_category=self.comboBoxcat.currentData()
+            id_manufacturer=self.comboBox_man.currentData()
+            id_supplier=self.comboBox_supp.currentData()
+            price=self.lineEdit_price.text()
+            unit=self.comboBox_edin.currentText()
+            stock_quantity=self.lineEdit_kolvo.text()
+            discount_percent = int(self.lineEdit_sale.text())
+            image_path=self.label_photo.text()
+            self.db.save_edit_card(id_product, product_name, description, id_category, id_manufacturer, id_supplier,price, unit, stock_quantity, discount_percent, image_path)
+            self.main_win.clean_scroll()
+            self.main_win.data_card()
+            QtWidgets.QMessageBox.information(self, 'Успешно','Товар отредактирован')
+            self.close()
+        except Exception as e:
+            print(e, "save_edit")
+
+    #удаление товара
+    def delete_product(self):
+        try:
+            messages = QtWidgets.QMessageBox(self)
+            messages.setWindowTitle('Подтверждение')
+            messages.setText('Удалить товар?')
+            btn_yes=messages.addButton('Да', QtWidgets.QMessageBox.ButtonRole.YesRole)
+            btn_no = messages.addButton('Нет', QtWidgets.QMessageBox.ButtonRole.NoRole)
+            messages.exec()
+            if messages.clickedButton()==btn_no:
+                return
+            self.db.delete_card(self.data_item[0])
+            self.main_win.clean_scroll()
+            self.main_win.data_card()
+            QtWidgets.QMessageBox.information(self, 'Успешно', 'Товар удален')
+            self.close()
+        except Exception as e:
+            if e.args[0] == 1451:
+                QtWidgets.QMessageBox.warning(self, "Ошибка", "Товар невозможно удалить, тк он находится в заказе")
+            else:
+                print(e)
+
+class CardAdd(QtWidgets.QDialog, Ui_DialogCard):
+    def __init__(self, main_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.main_win = main_win
+
+            for i in self.db.all_manufac():
+                self.comboBox_man.addItem(str(i[1]),i[0])
+
+            for i in self.db.all_supp():
+                self.comboBox_supp.addItem(str(i[1]), i[0])
+
+            for i in self.db.all_cat():
+                self.comboBoxcat.addItem(str(i[1]), i[0])
+
+            self.pushButtonsave.hide()
+            self.pushButton_del.hide()
+            self.pushButton_photo.clicked.connect(self.open_file)
+            self.pushButton_close.clicked.connect(self.close)
+            self.pushButtonAdd.clicked.connect(self.save_new)
+        except Exception as e:
+            print(e, '__init__ card add')
+
+    #выбор фотографии из файлов
+    def open_file(self):
+        try:
+            file_path, _ = QFileDialog.getOpenFileName()
+            if file_path:
+                self.label_photo.setText(file_path.split('/')[-1])
+            else:
+                self.label_photo.setText('photo.png')
+        except Exception as e:
+            print(e, 'open_file')
+
+    #сохранение нового товара
+    def save_new(self):
+        try:
+            product_name=self.lineEdit_name.text()
+            description=self.lineEdit_desc.text()
+            id_category=self.comboBoxcat.currentData()
+            id_manufacturer=self.comboBox_man.currentData()
+            id_supplier=self.comboBox_supp.currentData()
+            price=self.lineEdit_price.text()
+            unit=self.comboBox_edin.currentText()
+            stock_quantity=self.lineEdit_kolvo.text()
+            discount_percent=self.lineEdit_sale.text()
+            image_path=self.label_photo.text()
+            self.db.create_new_product(product_name,description,id_category,id_manufacturer,id_supplier,price,unit,stock_quantity,discount_percent,image_path)
+            QtWidgets.QMessageBox.information(self, 'Успешно', 'Товар добавлен')
+            self.main_win.clean_scroll()
+            self.main_win.data_card()
+            self.close()
+        except Exception as e:
+            print(e, 'save_new')
+
+class OrderWin(QtWidgets.QMainWindow,Ui_OrderWin):
+    def __init__(self, main_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.main_win = main_win
+
+            self.labelFIO.setText(self.main_win.fio)
+            self.layout_order = QVBoxLayout()
+            self.scrollAreaWidgetContents.setLayout(self.layout_order)
+
+            if self.main_win.role==3:
+                self.pushButtonAddOrder.hide()
+                self.label.hide()
+
+            self.insert_scroll_order()
+            self.pushButtonReturn.clicked.connect(self.return_main)
+            self.pushButtonAddOrder.clicked.connect(self.open_add_dialog)
+        except Exception as e:
+            print(e, '__init__ win order')
+
+    def insert_scroll_order(self):
+        try:
+            data = self.db.data_card_order()
+            for i in data:
+                card = OrderCard(i, self, self.main_win)
+                self.layout_order.addWidget(card)
+        except Exception as e:
+            print(e,'insert_scroll_order')
+
+    def clean_scroll_order(self):
+        try:
+            while self.layout_order.count():
+                item = self.layout_order.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+        except Exception as e:
+            print(e,'clean_scroll_order')
+
+    # возврат на главное окно
+    def return_main(self):
+        try:
+            self.win = MainWin(self.main_win.role, self.main_win.fio, self.main_win.id_user)
+            self.win.show()
+            self.close()
+        except Exception as e:
+            print(e,'return_main')
+
+    def open_add_dialog(self):
+        try:
+            self.win = OrderAdd(self)
+            self.win.show()
+        except Exception as e:
+            print(e,'open_add_dialog')
+
+class OrderCard(QtWidgets.QMainWindow, Ui_CardOrder):
+    def __init__(self, data_item,order_win,main_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.order_win = order_win
+            self.data_item = data_item
+            self.main_win = main_win
+
+            self.label_articul_ord.setText(str(data_item[0]))
+            self.label_adress.setText(data_item[1])
+            self.label_date_ord.setText(str(data_item[2]))
+            self.label_date_delivery.setText(str(data_item[3]))
+            self.label_status.setText(data_item[5])
+
+            if self.main_win.role==1:
+                self.frame.mousePressEvent = lambda event: self.open_edit()
+        except Exception as e:
+            print(e, '__init__ card order')
+
+    def open_edit(self):
+        try:
+            self.win = OrderEdit(self.data_item,self.order_win)
+            self.win.show()
+        except Exception as e:
+            print(e, 'open_edit')
+
+class OrderEdit(QtWidgets.QDialog, Ui_Dialog):
+    def __init__(self, data_item,order_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.order_win = order_win
+            self.data_item = data_item
+
+            self.labelARTICUL.setText(str(data_item[0]))
+            self.lineEditPoint.setText(data_item[1])
+            self.dateEditDatedelivery.setDate(data_item[3])
+
+            for i in self.db.all_status():
+                self.comboBoxStatus.addItem(str(i[1]), i[0])
+            self.comboBoxStatus.setCurrentText(data_item[5])
+
+            self.pushButtonAdd.hide()
+            self.pushButton_close.clicked.connect(self.close)
+            self.pushButtonsave.clicked.connect(self.save_edit_order)
+            self.pushButton_del.clicked.connect(self.delete_order)
+        except Exception as e:
+            print(e, '__init__ card order')
+
+    #сохранение отредактированного заказа
+    def save_edit_order(self):
+        try:
+            self.db.update_orders(self.labelARTICUL.text(), self.lineEditPoint.text(), self.dateEditDatedelivery.date().toPyDate(), self.comboBoxStatus.currentData())
+            self.order_win.clean_scroll_order()
+            self.order_win.insert_scroll_order()
+            QtWidgets.QMessageBox.information(self, 'Успешно', 'Заказ изменен')
+            self.close()
+        except Exception as e:
+            print(e, 'save_edit_order')
+
+    def delete_order(self):
+        try:
+            messages = QtWidgets.QMessageBox(self)
+            messages.setWindowTitle('Подтверждение')
+            messages.setText('Удалить товар?')
+            btn_yes = messages.addButton('Да', QtWidgets.QMessageBox.ButtonRole.YesRole)
+            btn_no = messages.addButton('Нет', QtWidgets.QMessageBox.ButtonRole.NoRole)
+            messages.exec()
+            if messages.clickedButton() == btn_no:
+                return
+            self.db.drop_order(self.data_item[0])
+            self.order_win.clean_scroll_order()
+            self.order_win.insert_scroll_order()
+            QtWidgets.QMessageBox.information(self, "Успешное удаление заказа", f"Заказ удален: {self.data_item[0]}")
+            self.close()
+        except Exception as e:
+            if e.args[0] == 1451:
+                QtWidgets.QMessageBox.warning(self, "Ошибка", "Заказ невозможно удалить")
+            else:
+                print(e, 'delete_order')
+
+class OrderAdd(QtWidgets.QDialog, Ui_Dialog):
+    def __init__(self,order_win):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.db = Databaser()
+            self.order_win = order_win
+
+            self.dateEditDatedelivery.setDate(QDate.currentDate())
+
+            for i in self.db.all_status():
+                self.comboBoxStatus.addItem(str(i[1]), i[0])
+
+            self.pushButtonsave.hide()
+            self.pushButton_del.hide()
+            self.pushButton_close.clicked.connect(self.close)
+            self.pushButtonAdd.clicked.connect(self.save_new_order)
+        except Exception as e:
+            print(e, '__init__ card order')
+
+    #сохранение нового заказа
+    def save_new_order(self):
+        try:
+            self.db.insert_new_order(self.lineEditPoint.text(),self.dateEditDatedelivery.date().toPyDate(),self.comboBoxStatus.currentData())
+            self.order_win.clean_scroll_order()
+            self.order_win.insert_scroll_order()
+            QtWidgets.QMessageBox.information(self, "Успешное добавление заказа", "Заказ добавлен")
+            self.close()
+        except Exception as e:
+            print(e,'save_new_order')

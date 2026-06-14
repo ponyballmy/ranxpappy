@@ -1,0 +1,733 @@
+#APP
+from login import *
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    ui= Login()
+    ui.show()
+    sys.exit(app.exec())
+
+
+#LOGIN
+from login_form import*
+from app import *
+from main import*
+class Login(QtWidgets.QMainWindow,Ui_MainWindow_auto):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.db= Databaser()
+        self.pushButton.clicked.connect(self.autoriz)
+        self.pushButton_2.clicked.connect(self.guest)
+    def autoriz(self):
+        try:
+            login = self.lineEdit.text()
+            password = self.lineEdit_2.text()
+            if login == "" or password == "":
+                return QtWidgets.QMessageBox.critical(self, 'Ошибка', 'Пожалуйста, заполните все поля!')
+            result= self.db.auto(login,password)
+            if result is None:
+                return QtWidgets.QMessageBox.critical(self,'Ошибка','Неверный логин или пароль!\nПожалуйста, проверьте введённые данные.')
+            role, user, fio=result
+            if role ==1:
+                self.entrance(role,user,fio)
+                QtWidgets.QMessageBox.information(self,'Уведомление',f'Здравствуйте, Администратор {fio}!')
+            if role ==2:
+                self.entrance(role, user, fio)
+                QtWidgets.QMessageBox.information(self, 'Уведомление', f'Здравствуйте, Клиент {fio}!')
+            if role ==3:
+                self.entrance(role, user, fio)
+                QtWidgets.QMessageBox.information(self,'Уведомление',f'Здравствуйте, Менеджер {fio}!')
+
+        except Exception as e:
+            print(e,'autoriz')
+
+    def entrance(self,role,user,fio):
+        self.window=Main_window(role,user,fio)
+        self.window.show()
+        self.close()
+    def guest(self):
+        self.window = Main_window(4,0,'Гостевой режим')
+        self.window.show()
+        self.close()
+#Db
+
+import pymysql
+
+
+class Databaser:
+    def __init__(self):
+        con = pymysql.connect(host="localhost", user="root", password="password", db="stationery", autocommit=True)
+        self.cursor = con.cursor()
+
+    def auto(self, login, password):
+        sql = '''
+        select id_role,id_user,fio_user from user where login=%s and password=%s
+
+        '''
+        self.cursor.execute(sql, (login, password))
+        res = self.cursor.fetchone()
+        return res
+
+    def insert_data_card_product(self):
+        sql = '''
+        select product.id_product,product.product_name,product.description,category.name_category,manufacturer.name_manufacturer,
+        supplier.name_supplier,product.price,product.unit,product.stock_quantity,product.discount_percent,product.image_path
+        from product 
+        join category on category.id_category=product.id_category
+        join manufacturer on manufacturer.id_manufacturer=product.id_manufacturer
+        join supplier on supplier.id_supplier=product.id_supplier
+
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def select_suiplier(self):
+        sql = '''
+
+        select id_supplier,name_supplier from supplier
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def select_manufacturer(self):
+        sql = '''
+
+        select id_manufacturer,name_manufacturer from manufacturer
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def select_category(self):
+        sql = '''
+
+        select id_category,name_category from category
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def select_status(self):
+        sql = '''
+
+        select id_status,name_status from status
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+    def search_filter(self, text, suplier, price):
+        pattern = f"%{text}%"
+        parametrs = [pattern, pattern, pattern, pattern]
+
+        sql = '''
+
+        select product.id_product,product.product_name,product.product_name,category.name_category,manufacturer.name_manufacturer,
+        supplier.name_supplier,product.price,product.unit,product.stock_quantity,product.discount_percent,product.image_path
+        from product 
+        join category on category.id_category=product.id_category
+        join manufacturer on manufacturer.id_manufacturer=product.id_manufacturer
+        join supplier on supplier.id_supplier=product.id_supplier
+        where(product.product_name like %s or product.product_name like %s or category.name_category like %s or manufacturer.name_manufacturer like %s)
+
+        '''
+
+        if suplier != 0:
+            sql += " and supplier.id_supplier=%s"
+            parametrs.append(suplier)
+
+        """if sale=='По возрастанию скидки':
+            sql+=' order by product.discount_percent asc'
+
+        if sale =='По убыванию скидки':
+            sql+=' order by product.discount_percent desc'"""
+
+        """ if discount_percent=='Скидка от 0-11%':
+                   sql+=" and product.discount_percent between 0 and 11"
+
+               if discount_percent == 'Скидка от 11-18%':
+                   sql += " and product.discount_percent between 11 and 18"
+
+               if discount_percent == 'Скидка от 19% и более':
+                   sql += " and product.discount_percent >= 19"
+                   """
+
+        if price == 'По возрастанию цены':
+            sql += ' order by product.price asc'
+
+        if price == 'По убыванию цены':
+            sql += ' order by product.price desc'
+
+        self.cursor.execute(sql, tuple(parametrs))
+        res = self.cursor.fetchall()
+        return res
+
+    def update_card_product(self, product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
+                            stock_quantity, discount_percent, image_path, id_product):
+        sql = '''
+
+        UPDATE product
+        SET `product_name` = %s,
+         `description` = %s,
+          `id_category` = %s, 
+          `id_manufacturer` = %s, 
+          `id_supplier` = %s,
+           `price` = %s, 
+           `unit` = %s,
+            `stock_quantity` = %s, 
+            `discount_percent` = %s, 
+            `image_path` = %s
+            WHERE `id_product` = %s;
+
+
+
+        '''
+        self.cursor.execute(sql, (product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
+                                  stock_quantity, discount_percent, image_path, id_product))
+
+    def delete_card_product(self, id_product):
+        sql = '''
+        DELETE FROM product WHERE id_product =%s
+        '''
+        self.cursor.execute(sql, (id_product,))
+
+    def add_card_product(self, product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
+                         stock_quantity, discount_percent, image_path):
+        sql = '''
+        INSERT INTO product (`product_name`, `description`, `id_category`, `id_manufacturer`, `id_supplier`, `price`, `unit`, `stock_quantity`, `discount_percent`, `image_path`)
+         VALUES (%s, %s,%s, %s, %s, %s, %s,%s, %s, %s);
+
+        '''
+        self.cursor.execute(sql, (product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
+                                  stock_quantity, discount_percent, image_path))
+
+    def update_card_order(self, pickup_point, issue_date, id_status, id_order):
+        sql = '''
+        UPDATE orders SET 
+        `pickup_point` = %s,
+         `issue_date` = %s, 
+         `id_status`=%s
+          WHERE id_order=%s 
+
+
+        '''
+        self.cursor.execute(sql, (pickup_point, issue_date, id_status, id_order))
+
+    def delete_card_order(self, id_order):
+
+        sql = '''
+        DELETE FROM orders WHERE id_order = %s
+
+        '''
+        self.cursor.execute(sql, (id_order,))
+
+    def add_card_order(self, pickup_point, issue_date, id_user):
+        sql = '''
+        INSERT INTO orders (`pickup_point`, `order_date`, `issue_date`, `id_user`, `id_status`) 
+        VALUES (%s, NOW(), %s, %s, 1);
+
+
+        '''
+        self.cursor.execute(sql, (pickup_point, issue_date, id_user))
+
+    def insert_data_order_card(self):
+        sql = '''
+
+        select orders.id_order,orders.pickup_point,orders.order_date,orders.issue_date,status.name_status
+        from orders
+        join status on orders.id_status = status.id_status
+
+        '''
+        self.cursor.execute(sql)
+        res = self.cursor.fetchall()
+        return res
+
+#MAIN
+from PyQt6 import QtWidgets
+from PyQt6.QtCore import QDate
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QFileDialog, QMessageBox
+from form_mainwindow import *
+
+from db import *
+from form_product_card import *
+from card_order import Card_order
+from order_form import Ui_Dialog_Order
+from order_window import *
+from product_form import *
+
+
+class Main_window(QtWidgets.QMainWindow, Ui_MainWindow):
+    def __init__(self, role, user, fio):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.role = role
+        self.user = user
+        self.fio = fio
+        self.labelFIO.setText(self.fio)
+        self.vertical_product = QVBoxLayout()
+        if self.role==2 or self.role==4:
+            self.pushButton.hide()
+
+            self.pushButton_2.hide()
+            self.lineEdit.hide()
+            self.comboBox_2.hide()
+            self.comboBox.hide()
+            self.comboBox_4.hide()
+            self.comboBox_3.hide()
+
+        if self.role==3:
+            self.pushButton.hide()
+        self.scrollAreaWidgetContents.setLayout(self.vertical_product)
+        self.insert_data_product()
+        self.pushButtonlogout.clicked.connect(self.log_out)
+
+        self.comboBox_4.addItem("Все поставщики", 0)
+        self.comboBox.addItems(['По возрастанию цены', 'По убыванию цены'])
+        self.comboBox_2.addItems(['По возрастанию скидки', 'По убыванию скидки'])
+        self.comboBox_3.addItems(['Весь диапозон', 'Скидка от 0-11%', 'Скидка от 11-18%', 'Скидка от 19% и более'])
+        for i in self.db.select_suiplier():
+            self.comboBox_4.addItem(str(i[1]), i[0])
+
+        self.comboBox_4.currentTextChanged.connect(self.search)
+        self.comboBox.currentTextChanged.connect(self.search)
+        self.lineEdit.textChanged.connect(self.search)
+        self.pushButton.clicked.connect(self.open_add_card)
+        self.pushButton_2.clicked.connect(self.open_window_order)
+
+    def log_out(self):
+        from login import Login
+        self.win = Login()
+        self.win.show()
+        self.close()
+
+    def insert_data_product(self):
+        data = self.db.insert_data_card_product()
+        for item_data in data:
+            card = Product_card(item_data, self)
+            self.vertical_product.addWidget(card)
+
+    def delete_card(self):
+        while self.vertical_product.count():
+            item = self.vertical_product.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def search(self):
+        self.delete_card()
+        data = self.db.search_filter(self.lineEdit.text(), self.comboBox_4.currentData(), self.comboBox.currentText())
+        for item_data in data:
+            card = Product_card(item_data, self)
+            self.vertical_product.addWidget(card)
+
+    def open_add_card(self):
+        self.win = Add_Product(self)
+        self.win.show()
+
+    def open_window_order(self):
+        try:
+            self.win = Order(self)
+            self.win.show()
+            self.close()
+        except Exception as e:
+            print(e)
+
+class Product_card(QtWidgets.QMainWindow, IU_card_product):
+    def __init__(self, data, main_window):
+        try:
+            super().__init__()
+            self.setupUi(self)
+            self.data = data
+            self.main_window = main_window
+            self.label_name.setText(self.data[1])
+            self.label_description.setText(self.data[2])
+            self.label_category.setText(self.data[3])
+            self.label_manufactor.setText(self.data[4])
+            self.label_suplier.setText(self.data[5])
+            self.label_Oldprice.setText(str(self.data[6]))
+            self.label_izmerenie.setText(str(self.data[7]))
+            self.label_count.setText(str(self.data[8]))
+            self.label_sale.setText(str(self.data[9]))
+            # Проверка на пустоту и на пробелы
+            if self.data[10] and self.data[10].strip():
+                pix = QPixmap(f'photo/{self.data[10]}')
+            else:
+                pix = QPixmap('photo/default.jpg')
+
+            self.label_photo.setPixmap(pix.scaled(300, 200))
+            if self.main_window.role==1:
+                self.frame.mousePressEvent = lambda event: self.open_work_product()
+            if self.data[9] > 12:
+                self.frame.setStyleSheet("background-color: rgb(255, 170, 0);")
+
+            if self.data[9] > 1:
+                self.label_Oldprice.setStyleSheet("text-decoration: line-through; color: rgb(255, 0, 0);")
+                self.label_new_price.setText(
+                    str(round(int(self.data[6]) - int(self.data[6]) / 100 * int(self.data[9]))))
+
+            if self.data[8] == 0:
+                self.label_count.setStyleSheet("background-color: rgb(0, 255, 255);")
+                self.label_12.setStyleSheet("background-color: rgb(0, 255, 255);")
+        except Exception as e:
+            print(e)
+
+    def open_work_product(self):
+        self.window = Work_Product(self.data, self.main_window)
+        self.window.show()
+
+
+class Work_Product(QtWidgets.QDialog, Ui_Dialog_Product):
+    def __init__(self, data, main_window):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.data = data
+        self.main_window = main_window
+        self.load_data()
+        self.lineEdit_3.setText(self.data[1])
+        self.textEdit.setText(self.data[2])
+        self.lineEdit.setText(str(self.data[6]))
+        self.lineEdit_2.setText(str(self.data[8]))
+        self.lineEdit_4.setText(str(self.data[9]))
+        self.label_13.setText(self.data[10])
+        self.comboBox.setCurrentText(self.data[4])
+        self.comboBox_2.setCurrentText(self.data[5])
+        self.comboBox_category.setCurrentText(self.data[3])
+
+        self.pushButton_5.clicked.connect(self.open_photo)
+        self.pushButton.hide()
+        self.pushButton_2.clicked.connect(self.save_card)
+        self.pushButton_3.clicked.connect(self.close)
+        self.pushButton_4.clicked.connect(self.delete_card_product)
+
+    def load_data(self):
+        for i in self.db.select_category():
+            self.comboBox_category.addItem(str(i[1]), i[0])
+
+        for i in self.db.select_suiplier():
+            self.comboBox_2.addItem(str(i[1]), i[0])
+
+        for i in self.db.select_manufacturer():
+            self.comboBox.addItem(str(i[1]), i[0])
+
+    def open_photo(self):
+        file, _ = QFileDialog.getOpenFileName()
+        if file:
+            self.label_13.setText(file.split('/')[-1])
+
+    def save_card(self):
+        try:
+            import os
+            product_name = self.lineEdit_3.text()
+            description = self.textEdit.toPlainText()
+            id_category = self.comboBox_category.currentData()
+            id_manufacturer = self.comboBox.currentData()
+            id_supplier = self.comboBox_2.currentData()
+            price = self.lineEdit.text()
+            unit = self.comboBox_3.currentText()
+            stock_quantity = self.lineEdit_2.text()
+            discount_percent = self.lineEdit_4.text()
+            image_path = self.label_13.text()
+            old_image = self.data[10]
+            if old_image != image_path and old_image != "default.jpg":
+                path = f"photo/{old_image}"
+
+                if os.path.exists(path):
+                    os.remove(path)
+            if not product_name.strip() or not description.strip() or not price.strip() \
+                    or not stock_quantity.strip():
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Заполните все поля!"
+                )
+                return
+
+            if int(discount_percent) > 100:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Скидка не может быть больше 100%"
+                )
+                return
+
+            self.db.update_card_product(product_name, description, id_category, id_manufacturer, id_supplier, price,
+                                        unit, stock_quantity, discount_percent, image_path, self.data[0])
+            self.main_window.delete_card()
+            self.main_window.insert_data_product()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Уведомление",
+                "Вы успешно отредактировали товар"
+            )
+            self.close()
+        except Exception as e:
+            print(e)
+
+    def delete_card_product(self):
+        try:
+            msg = QtWidgets.QMessageBox(self)
+            msg.setWindowTitle("Подтверждение")
+            msg.setText("Удалить товар?")
+            btn_yes = msg.addButton("Да", QtWidgets.QMessageBox.ButtonRole.YesRole)
+            btn_no = msg.addButton("Нет", QtWidgets.QMessageBox.ButtonRole.NoRole)
+            msg.exec()
+            if msg.clickedButton() == btn_no:
+                return
+            self.db.delete_card_product(self.data[0])
+            import os
+
+            if self.data[10]:
+                path = f"photo/{self.data[10]}"
+                if os.path.exists(path):
+                    os.remove(path)
+            self.main_window.delete_card()
+            self.main_window.insert_data_product()
+
+            QtWidgets.QMessageBox.information(
+                self,
+                "Уведомление",
+                "Вы успешно удалили товар"
+            )
+
+            self.close()
+
+        except Exception as e:
+            if e.args[0] == 1451:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Невозможно удалить товар: он используется в заказах"
+                )
+            else:
+                print(e)
+
+
+class Add_Product(QtWidgets.QDialog, Ui_Dialog_Product):
+    def __init__(self, main_win):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.main_win = main_win
+        self.pushButton_2.hide()
+        self.pushButton_3.clicked.connect(self.close)
+        self.pushButton_4.hide()
+        self.pushButton_5.clicked.connect(self.open_photo)
+        self.load_data()
+        self.pushButton.clicked.connect(self.add_product)
+
+    def open_photo(self):
+        file, _ = QFileDialog.getOpenFileName()
+        if file:
+            self.label_13.setText(file.split('/')[-1])
+
+    def load_data(self):
+        for i in self.db.select_category():
+            self.comboBox_category.addItem(str(i[1]), i[0])
+
+        for i in self.db.select_suiplier():
+            self.comboBox_2.addItem(str(i[1]), i[0])
+
+        for i in self.db.select_manufacturer():
+            self.comboBox.addItem(str(i[1]), i[0])
+
+    def add_product(self):
+        product_name = self.lineEdit_3.text()
+        description = self.textEdit.toPlainText()
+        id_category = self.comboBox_category.currentData()
+        id_manufacturer = self.comboBox.currentData()
+        id_supplier = self.comboBox_2.currentData()
+        price = self.lineEdit.text()
+        unit = self.comboBox_3.currentText()
+        stock_quantity = self.lineEdit_2.text()
+        discount_percent = self.lineEdit_4.text()
+        image_path = self.label_13.text()
+        if not product_name or not description or not price or not stock_quantity or not discount_percent:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Заполните все поля!"
+            )
+            return
+
+        if int(discount_percent) > 100:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Скидка не может быть больше 100%"
+            )
+            return
+        self.db.add_card_product(product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
+                                 stock_quantity, discount_percent, image_path)
+        self.main_win.delete_card()
+        self.main_win.insert_data_product()
+        QtWidgets.QMessageBox.information(
+            self,
+            "Уведомление",
+            "Вы успешно добавили товар"
+        )
+        self.close()
+
+
+class Order(QtWidgets.QMainWindow, Order_Window):
+    def __init__(self, main_win):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.main_win = main_win
+        if self.main_win.role==3:
+            self.pushButton_addorder.hide()
+        self.vertical_order = QVBoxLayout()
+        self.scrollAreaWidgetContents.setLayout(self.vertical_order)
+        self.insert_data_order()
+        self.pushButton_addorder.clicked.connect(self.open_add_order)
+        self.pushButton_close.clicked.connect(self.open_main_win)
+        self.label_FIO.setText(self.main_win.fio)
+
+    def insert_data_order(self):
+        data = self.db.insert_data_order_card()
+        for item in data:
+            card = Order_Card(item, self, self.main_win)
+            card.setFixedHeight(180)
+            self.vertical_order.addWidget(card)
+
+    def delete_order(self):
+        while self.vertical_order.count():
+            item = self.vertical_order.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def open_add_order(self):
+        self.win = Add_order(self, self.main_win)
+        self.win.show()
+
+    def open_main_win(self):
+        self.win = Main_window(self.main_win.role, self.main_win.user, self.main_win.fio)
+        self.win.show()
+        self.close()
+
+
+class Order_Card(QtWidgets.QMainWindow, Card_order):
+    def __init__(self, data, order_win, main_win):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.data = data
+        self.order_win = order_win
+        self.main_win = main_win
+        self.label_id.setText(str(self.data[0]))
+        self.label_adress.setText(str(self.data[1]))
+        self.label_date_order.setText(str(self.data[2]))
+        self.label_dateDostavka.setText(str(self.data[3]))
+        self.label_status.setText(str(self.data[4]))
+        if self.main_win.role == 1:
+            self.frame_2.mousePressEvent = lambda event: self.open_work_order()
+
+    def open_work_order(self):
+        self.win = Order_Work(self.data, self.order_win)
+        self.win.show()
+
+
+class Order_Work(QtWidgets.QDialog, Ui_Dialog_Order):
+    def __init__(self, data, order_win):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.data = data
+        self.order_win = order_win
+        self.label_4.setText(str(self.data[0]))
+        for i in self.db.select_status():
+            self.comboBox.addItem(str(i[1]), i[0])
+        self.lineEdit.setText(self.data[1])
+        self.dateEdit.setDate(self.data[3])
+        self.comboBox.setCurrentText(self.data[4])
+
+        self.pushButton_4.clicked.connect(self.close)
+        self.pushButton_3.hide()
+        self.pushButton.clicked.connect(self.save_card_order)
+        self.pushButton_2.clicked.connect(self.delete_card_order)
+
+    def save_card_order(self):
+        try:
+            pickup_point = self.lineEdit.text()
+            issue_date = self.dateEdit.date().toPyDate()
+            id_status = self.comboBox.currentData()
+            self.db.update_card_order(pickup_point, issue_date, id_status, self.data[0])
+            self.order_win.delete_order()
+            self.order_win.insert_data_order()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Уведомление",
+                "Вы успешно отредактировали заказ"
+            )
+            self.close()
+
+        except Exception as e:
+            print(e)
+
+    def delete_card_order(self):
+        try:
+            self.db.delete_card_order(self.data[0])
+            msg = QtWidgets.QMessageBox(self)
+            msg.setWindowTitle("Подтверждение")
+            msg.setText("Удалить заказ?")
+
+            btn_yes = msg.addButton("Да", QtWidgets.QMessageBox.ButtonRole.YesRole)
+            btn_no = msg.addButton("Нет", QtWidgets.QMessageBox.ButtonRole.NoRole)
+
+            msg.exec()
+
+            if msg.clickedButton() == btn_no:
+                return
+            self.order_win.delete_order()
+            self.order_win.insert_data_order()
+            self.close()
+        except Exception as e:
+            if e.args[0] == 1451:
+                QtWidgets.QMessageBox.warning(self, "Ошибка", "Невозможно удалить заказ")
+            else:
+
+                print(e)
+
+class Add_order(QtWidgets.QDialog, Ui_Dialog_Order):
+    def __init__(self, order_win, main_win):
+        super().__init__()
+        self.setupUi(self)
+        self.db = Databaser()
+        self.order_win = order_win
+        self.main_win = main_win
+        self.dateEdit.setDate(QDate.currentDate())
+        self.pushButton.hide()
+        self.pushButton_2.hide()
+        self.pushButton_4.clicked.connect(self.close)
+        self.pushButton_3.clicked.connect(self.add_order)
+        for i in self.db.select_status():
+            self.comboBox.addItem(str(i[1]), i[0])
+
+    def add_order(self):
+        try:
+            pickup_point = self.lineEdit.text()
+            issue_date = self.dateEdit.date().toPyDate()
+            id_user = self.main_win.user
+            self.db.add_card_order(pickup_point, issue_date, id_user)
+            self.order_win.delete_order()
+            self.order_win.insert_data_order()
+            QtWidgets.QMessageBox.information(
+                self,
+                "Уведомление",
+                "Вы успешно добавили заказ"
+            )
+            self.close()
+
+        except Exception as e:
+            print(e)

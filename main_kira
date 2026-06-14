@@ -1,4 +1,5 @@
 from PyQt6 import QtWidgets
+from PyQt6.QtCore import QDate
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QFileDialog, QMessageBox
 
@@ -195,6 +196,22 @@ class Work_Product(QtWidgets.QDialog, Ui_Dialog_Product):
 
                 if os.path.exists(path):
                     os.remove(path)
+            if not product_name.strip() or not description.strip() or not price.strip() \
+                    or not stock_quantity.strip():
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Заполните все поля!"
+                )
+                return
+
+            if int(discount_percent) > 100:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Скидка не может быть больше 100%"
+                )
+                return
 
             self.db.update_card_product(product_name, description, id_category, id_manufacturer, id_supplier, price,
                                         unit, stock_quantity, discount_percent, image_path, self.data[0])
@@ -293,6 +310,21 @@ class Add_Product(QtWidgets.QDialog, Ui_Dialog_Product):
         stock_quantity = self.lineEdit_2.text()
         discount_percent = self.lineEdit_4.text()
         image_path = self.label_13.text()
+        if not product_name or not description or not price or not stock_quantity or not discount_percent:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Заполните все обязательные поля!"
+            )
+            return
+
+        if int(discount_percent) > 100:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Скидка не может быть больше 100%"
+            )
+            return
         self.db.add_card_product(product_name, description, id_category, id_manufacturer, id_supplier, price, unit,
                                  stock_quantity, discount_percent, image_path)
         self.main_win.delete_card()
@@ -432,6 +464,7 @@ class Add_order(QtWidgets.QDialog, Ui_Dialog_Order):
         self.db = Databaser()
         self.order_win = order_win
         self.main_win = main_win
+        self.dateEdit.setDate(QDate.currentDate())
         self.pushButton.hide()
         self.pushButton_2.hide()
         self.pushButton_4.clicked.connect(self.close)

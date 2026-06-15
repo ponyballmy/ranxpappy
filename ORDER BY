@@ -1,0 +1,66 @@
+    def search_filter(self,text,suplier,price,stock):
+        pattern= f"%{text}%"
+        parametrs=[pattern,pattern,pattern,pattern]
+
+        sql='''
+        
+        select product.id_product,product.product_name,product.product_name,category.name_category,manufacturer.name_manufacturer,
+        supplier.name_supplier,product.price,product.unit,product.stock_quantity,product.discount_percent,product.image_path
+        from product 
+        join category on category.id_category=product.id_category
+        join manufacturer on manufacturer.id_manufacturer=product.id_manufacturer
+        join supplier on supplier.id_supplier=product.id_supplier
+        where(product.product_name like %s or product.product_name like %s or category.name_category like %s or manufacturer.name_manufacturer like %s)
+        
+        '''
+
+
+        if suplier!=0:
+            sql+=" and supplier.id_supplier=%s"
+            parametrs.append(suplier)
+
+        """if sale=='По возрастанию скидки':
+            sql+=' order by product.discount_percent asc'
+
+        if sale =='По убыванию скидки':
+            sql+=' order by product.discount_percent desc'"""
+
+        """ if discount_percent=='Скидка от 0-11%':
+                   sql+=" and product.discount_percent between 0 and 11"
+
+               if discount_percent == 'Скидка от 11-18%':
+                   sql += " and product.discount_percent between 11 and 18"
+
+               if discount_percent == 'Скидка от 19% и более':
+                   sql += " and product.discount_percent >= 19"
+                   """
+        order_fields = []
+
+        if price == 'Цена ↑':
+            order_fields.append('product.price ASC')
+
+        elif price == 'Цена ↓':
+            order_fields.append('product.price DESC')
+
+        if stock == 'Количество ↑':
+            order_fields.append('product.stock_quantity ASC')
+
+        elif stock == 'Количество ↓':
+            order_fields.append('product.stock_quantity DESC')
+
+        if order_fields:
+            sql += ' ORDER BY ' + ', '.join(order_fields)
+
+
+
+        if price=='По возрастанию цены':
+            sql+=' order by product.price asc'
+
+        if price =='По убыванию цены':
+            sql+=' order by product.price desc'
+
+
+
+        self.cursor.execute(sql,tuple(parametrs))
+        res = self.cursor.fetchall()
+        return res

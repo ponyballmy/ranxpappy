@@ -246,6 +246,12 @@ class CardEdit(QtWidgets.QDialog, Ui_DialogCard):
             if messages.clickedButton()==btn_no:
                 return
             self.db.delete_card(self.data_item[0])
+            import os
+
+            if self.data_item[10]:
+                path = f"image/{self.data_item[10]}"
+                if os.path.exists(path):
+                    os.remove(path)
             self.main_win.clean_scroll()
             self.main_win.data_card()
             QtWidgets.QMessageBox.information(self, 'Успешно', 'Товар удален')
